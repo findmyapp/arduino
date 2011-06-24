@@ -1,5 +1,5 @@
 // Metode som må kjøres på serversiden for å regne ut korrekt temperatur
-// Tar voltage til input, som igjen er output fra getTemp metoden fra Arduino
+// Tar voltage til input, som igjen er output fra getTemp metoden fra Arduino.
 
 public double getTemp(double voltage) {
 	double R = 10000.0; // Fixed resistance in the voltage divider
