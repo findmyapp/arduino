@@ -1,4 +1,5 @@
 #include "WiFly.h"
+#include "Credentials.h"
 #include <BeerCounter.h>
 
 Client client("findmyapp.net", 80);
@@ -12,15 +13,17 @@ int numberOfBeers = 0;
 void setup() {
   
   beerCounter.setup();
+  attachInterrupt(0, beerTapped, RISING);
 }
 
 void loop() {
   
-   numberOfBeers = beerCounter.getTheNumberOfBeers();
+  numberOfBeers = beerCounter.getTheNumberOfBeers();
   //numberOfBeers = beerCounter.getTheNumberOfBeers();
+ // Serial.println("Skål!");
   if (client.available()) {
     char c = client.read();
-    //Serial.print(c);
+    Serial.print(c);
   }
   
   if(numberOfBeers >= 10) {
@@ -55,4 +58,6 @@ void sendBeerCountData(){
   }
 }
   
-  
+void beerTapped(){
+  numberOfBeers =  beerCounter.getTheNumberOfBeers();
+}
