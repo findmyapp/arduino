@@ -29,6 +29,7 @@ void loop() {
   if(numberOfBeers >= 10) {
     Serial.println("10 beers!");
     if (!client.connected()) {
+      Serial.println("test");
       delay(sendDelay);
       sendBeerCountData();
       beerCounter.reset();    
