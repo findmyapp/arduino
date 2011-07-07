@@ -3,6 +3,6 @@
 
 // Wifi parameters
 char passphrase[] = "findmyapp";
-char ssid[] = "esn";
+char ssid[] = "findMyHotspot"; // "esn";
 
 #endif
