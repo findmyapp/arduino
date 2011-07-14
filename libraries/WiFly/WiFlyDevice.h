@@ -9,17 +9,17 @@ class WiFlyDevice {
   public:
     WiFlyDevice(SpiUartDevice& theUart);
     void begin();
-
     boolean join(const char *ssid);
     boolean join(const char *ssid, const char *passphrase, 
                  boolean isWPA = true);
 
     boolean configure(byte option, unsigned long value);
-
-    const char * ip();
     
-  private:
+    const char * ip();
     SpiUartDevice& uart;
+	
+  private:
+    
 
     // Okay, this really sucks, but at the moment it works.
     // The problem is that we have to keep track of an active server connection

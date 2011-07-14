@@ -1,9 +1,11 @@
 
 #include "WiFly.h"
 
-#define DEBUG_LEVEL 0
+#define DEBUG_LEVEL 6
 
 #include "Debug.h"
+
+#define USE_HARDWARE_RESET false
 
 
 boolean WiFlyDevice::findInResponse(const char *toMatch,
@@ -49,11 +51,31 @@ boolean WiFlyDevice::findInResponse(const char *toMatch,
 
     delay(1); // Removing logging may affect timing slightly
 
-    DEBUG_LOG(5, "Offset:");
-    DEBUG_LOG(5, offset);
-    DEBUG_LOG(3, (char) byteRead);
-    DEBUG_LOG(4, byteRead);
-
+    DEBUG_LOG(7, "Offset:");
+    DEBUG_LOG(7, offset);
+    DEBUG_LOG(7, (char) byteRead);
+    DEBUG_LOG(7, byteRead);
+	
+	/*
+	//DEBUG_LOG(6,(char)byteRead);
+	//DEBUG_LOG(6," <-> ");
+	//DEBUG_LOG(6,toMatch[offset]);
+	//DEBUG_LOG(6,toMatch[0]);
+	if(byteRead==toMatch[offset]){
+		DEBUG_LOG(6,"Match --> ");
+		DEBUG_LOG(6,byteRead==toMatch[offset]);
+	}
+	*/
+	Serial.print((char)byteRead);
+	Serial.print(" <-> ");
+	Serial.print(toMatch[offset]);
+	if(byteRead==toMatch[offset]){
+		Serial.print("Match --> ");
+		Serial.print(byteRead==toMatch[offset]);
+	}
+	Serial.println();
+	
+	
     if (byteRead != toMatch[offset]) {
       offset = 0;
       // Ignore character read if it's not a match for the start of the string
@@ -79,6 +101,8 @@ boolean WiFlyDevice::responseMatched(const char *toMatch) {
   for (unsigned int offset = 0; offset < strlen(toMatch); offset++) {
     while (!uart.available()) {
       // Wait -- no timeout
+	  delay(10);
+	  DEBUG_LOG(3, "responseMatched loop");
     }
     if (uart.read() != toMatch[offset]) {
       matchFound = false;
@@ -151,7 +175,8 @@ boolean WiFlyDevice::enterCommandMode(boolean isAfterBoot) {
     // TODO: Find alternate approach or only use this method after a (re)boot?
     uart.println("ver");
 
-    if (findInResponse("\r\nWiFly Ver", 1000)) {
+	//Why check for line break? from "\r\nWiFly Ver" - > "WiFly Ver"
+    if (findInResponse("WiFly Ver", 1000)) {
       // TODO: Flush or leave remainder of output?
       return true;
     }
@@ -169,6 +194,8 @@ void WiFlyDevice::skipRemainderOfResponse() {
 
     while (!(uart.available() && (uart.read() == '\n'))) {
       // Skip remainder of response
+	  delay(10);
+	  DEBUG_LOG(3, "skipRemainderOfResponse loop");
     }
 }
 
@@ -233,23 +260,28 @@ boolean WiFlyDevice::softwareReboot(boolean isAfterBoot = true) {
     // TODO: Have the post-boot delay here rather than in enterCommandMode()?
 
     if (!enterCommandMode(isAfterBoot)) {
+	  DEBUG_LOG(1,"reboot: Fail to enter command mode");
       return false; // If the included retries have failed we give up
     }
+	//uart.println("exit");
+	//uart.println("$$$");
 
     uart.println("reboot");
-
+	delay(2000); //reboot time
+	//findInResponse("WiFly Ver", 10000);
     // For some reason the full "*Reboot*" message doesn't always
     // seem to be received so we look for the later "*READY*" message instead.
 
     // TODO: Extract information from boot? e.g. version and MAC address
 
-    if (findInResponse("*READY*", 2000)) {
+    if (findInResponse("*READY*", 10000)) {
       return true;
     }
   }
 
   return false;
 }
+
 
 boolean WiFlyDevice::hardwareReboot() {
   /*
@@ -259,7 +291,7 @@ boolean WiFlyDevice::hardwareReboot() {
   delay(1);
   uart.ioSetState(0b00000010);
 
-  return findInResponse("*READY*", 2000);
+  return findInResponse("*READY*", 5000);
 }
 
 
@@ -276,8 +308,9 @@ void WiFlyDevice::reboot() {
   DEBUG_LOG(1, "Entered reboot");
 
   if (!REBOOT()) {
-    DEBUG_LOG(1, "Failed to reboot. Halting.");
-    while (1) {}; // Hang. TODO: Handle differently?
+    //DEBUG_LOG(1, "Failed to reboot. Halting.");
+	DEBUG_LOG(1, "Failed to reboot. Moving on...");
+    //while (1) {}; // Hang. TODO: Handle differently?
   }
 }
 
@@ -300,7 +333,9 @@ boolean WiFlyDevice::sendCommand(const char *command,
     // TODO: Handle other responses
     //       (e.g. autoconnect message before it's turned off,
     //        DHCP messages, and/or ERR etc)
-    waitForResponse(expectedResponse);
+	
+	return findInResponse(expectedResponse, 5000);
+    //waitForResponse(expectedResponse);
   }
 
   return true;
@@ -409,6 +444,7 @@ boolean WiFlyDevice::join(const char *ssid) {
     // TODO: Extract information from complete response?
     // TODO: Change this to still work when server mode not active
     waitForResponse("Listen on ");
+	
     skipRemainderOfResponse();
     return true;
   }

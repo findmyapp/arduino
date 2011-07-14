@@ -10,69 +10,114 @@ Client client(url, port);
 
 float tempValue;
 float humValue;
+unsigned int sentCounter = 0;
+
+unsigned long timeOutCounter = 0;
+unsigned int timeOut = 10000;
 
 boolean temperatureSent = false;
 boolean humiditySent = false;
 boolean noiseSent = false;
 
 
+
 void setup() {
   Serial.begin(115200);
+  Serial.println("Arduino start");
 
   WiFly.begin(); 
   
+  Serial.println("trying to connect");
   if (!WiFly.join(ssid, passphrase)) {
-    //Serial.println("Association failed.");
+    Serial.println("Association failed.");
     while (1) {
       // Hang on failure.
     }
   }   
-  WiFly.configure(WIFLY_BAUD, 38400);
+  Serial.println("connected to network");
+  //WiFly.configure(WIFLY_BAUD, 38400);
+  Serial.println("Baud ok");
   //delay(2000); //connect time
 }
 
 int count = 0;
 
 void loop() {
-  
-  if (client.available()) {
-    char c = client.read();
+  //Serial.println("loop");
+  //if (client.available()) {
+    //Serial.println("available");
+    //char c = client.read();
     //Serial.print(c);
-    count++;
-    if (count > 80) {
-      count = 0;
-      //Serial.println();
-    }
-  }
+    //count++;
+    //if (count > 80) {
+    //  count = 0;
+   //   Serial.println();
+    //}
+ / }
+  
+  
+  /*
   if (!client.connected()) {
+    Serial.println("start delay");
     delay(sendDelay);
+    Serial.println("End delay");
     if (temperatureSent == false){
+      Serial.println("temp:send");
       sendTemperatureData();
       temperatureSent = true;
+      Serial.println("temp:sent");
     } else if (humiditySent == false){
-      sendHumidityData();
+      Serial.println("hum:send");
+      sendHumidityData();   
       humiditySent = true;
+      Serial.println("hum:sent");
     } else if (noiseSent == false){
+      Serial.println("noise:send");
       sendNoiseData();
       noiseSent = true;
+      Serial.println("noise:sent");
     } else {
       temperatureSent = false;
       humiditySent = false;
-      noiseSent = false;    
+      noiseSent = false; 
+      Serial.println("reset bool flags");   
     }
     
+  }
+  */
+  if (!client.connected()) {
+    //client.flush();
+    //Serial.flush();
+    //client.stop();
+    //client.flush();
+   
+    if (millis() > timeOutCounter){
+      Serial.println("### new data ###");
+      client.flush();
+      client.stop();
+      sendTemperatureData();
+      Serial.println("### end data ###");
+    }
+    
+    //delay(50);
+  } else {
+    //client.stop();
   }
 
 }
 void sendTemperatureData(){
-  tempValue = temperatureSensor.readTemperature();
-  //Serial.println("connecting...");
+  
+  Serial.println("temp:connecting...");
   
  if (client.connect()) {
-    //Serial.println("connected");
+    timeOutCounter = millis() + timeOut;
+    tempValue = temperatureSensor.readTemperature();
+    sentCounter = sentCounter +1 ;
+    Serial.println("temp:connected...");
+    
     client.print("POST "); 
-    client.print("/findmyapp/location/");
-    client.print(location);
+    client.print("/findmyapp/locations/");
+    client.print(sentCounter);
     client.print("/temperature");
     client.print(" HTTP/1.0");
     client.println();
@@ -86,15 +131,48 @@ void sendTemperatureData(){
     client.print(tempValue);
     client.println("}");
     client.println();
+    client.flush();
+    Serial.println("temp:request sent");
+  } else {
+    //
+    //client.stop();
+  }
+}
+void sendAuthTemperatureData(){
+  tempValue = temperatureSensor.readTemperature();
+  Serial.println("temp:connecting...");
+  
+ if (client.connect()) {
+    Serial.println("temp:connected...");
+    client.print("POST "); 
+    client.print("/findmyapp/locations/");
+    client.print(location);
+    client.print("/temperature");
+    client.print(" HTTP/1.0");
+    client.println();
+    client.println("Content-Type: application/json");
+    client.println("Accept: application/json");
+    client.println("Autorization: Basic YXJkdWlubzpGMzJnSWstTDc=");
+    client.println("Content-Length: 50");
+    client.println();
+    client.print("{\"location\":");
+    client.print(location);
+    client.print(", \"value\":");
+    client.print(tempValue);
+    client.println("}");
+    client.println();
+    client.flush();
+    client.stop();
+    Serial.println("temp:request sent");
   }
 }
 
 void sendHumidityData(){
   humValue = temperatureSensor.readHumidity();
-  //Serial.println("connecting...");
+  Serial.println("hum:connecting...");
   
  if (client.connect()) {
-    //Serial.println("connected");
+    Serial.println("hum:connected...");
     client.print("POST "); 
     client.print("/findmyapp/location/");
     client.print(location);
@@ -111,14 +189,15 @@ void sendHumidityData(){
     client.print(humValue);
     client.println("}");
     client.println();
+    Serial.println("hum:request sent");
   }
 }
 
 void sendNoiseData(){
-  //Serial.println("connecting...");
+  Serial.println("noise:connecting...");
   
   if (client.connect()) {
-    //Serial.println("connected");
+    Serial.println("noise:connected");
     client.print("POST "); 
     client.print("/findmyapp/location/");
     client.print(location);
@@ -140,6 +219,7 @@ void sendNoiseData(){
     }
     client.println("]");
     client.println();
+    Serial.println("noise:request sent");
   }
 }
 

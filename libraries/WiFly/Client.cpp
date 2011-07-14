@@ -1,6 +1,7 @@
 
 #include "WiFly.h"
 #include "Client.h"
+#include "Debug.h"
 
 Client::Client(uint8_t *ip, uint16_t port) :
   _WiFly (WiFly),
@@ -60,7 +61,7 @@ void Client::write(const uint8_t *buffer, size_t size) {
 boolean Client::connect() {
   /*
    */
-
+  boolean failed = false;
   // Handle case when Null object returned from Server.available()
   if (!this) {
     return false;
@@ -77,7 +78,10 @@ boolean Client::connect() {
     // TODO: Track state more?
     _WiFly.enterCommandMode();
     
-    _WiFly.sendCommand("open ", true, "" /* TODO: Remove this dummy value */);
+	if (!_WiFly.sendCommand("open ", true, "" /* TODO: Remove this dummy value */)){
+		return false;
+	}
+    
     
     if (_ip != NULL) {
       for (int index = 0; /* break inside loop*/ ; index++) {
@@ -99,7 +103,10 @@ boolean Client::connect() {
     
     _WiFly.uart.print(_port, DEC);
     
-    _WiFly.sendCommand("", false, "*OPEN*");
+	if(!_WiFly.sendCommand("", false, "*OPEN*")){
+		return false;
+	}
+    
     
     // TODO: Handle connect failure
   }
@@ -149,6 +156,7 @@ bool Client::connected() {
   /*
    */
   // TODO: Set isOpen to false once we know the stream is closed?
+ 
   return isOpen && !stream.closed();
 }
 
@@ -173,8 +181,9 @@ void Client::stop() {
   // error if the connection is no longer open.
 
   _WiFly.uart.println("exit"); // TODO: Fix this hack which is a workaround for the fact the closed connection isn't detected properly, it seems. Even with this there's a delay between reconnects needed.
-  _WiFly.waitForResponse("EXIT");
-  _WiFly.skipRemainderOfResponse();
+  //_WiFly.waitForResponse("EXIT");
+  //_WiFly.skipRemainderOfResponse();
+  _WiFly.findInResponse("exit", 1000);
   // As a result of this, unwanted data gets sent to /dev/null rather than
   // confusing the WiFly which tries to interpret it as commands.
 
