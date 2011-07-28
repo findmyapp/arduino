@@ -14,6 +14,8 @@ set ip address 0
 set ip remote 80
 set com idle 5
 set uart baud 115200
+save
+reboot
 
  */
 
@@ -21,6 +23,7 @@ set uart baud 115200
 #include <TemperatureSensor.h>
 #include <SoundSensor.h>
 #include "properties.h"
+#include "ByteBuffer.h"
 
 SoundSensor soundSensor(soundSensorPin);
 TemperatureSensor temperatureSensor(tempDataPin,tempClockPin);
@@ -40,6 +43,11 @@ unsigned int aliveCounter;
 unsigned long timeout = 60000; //180000;
 unsigned long timeoutCounter = 0;
 
+// buffer for reading answer from server
+ByteBuffer buffer;
+ByteBuffer mirrorBuffer;
+
+
 //queueing
 enum {
   TEMPERATURE,
@@ -56,6 +64,8 @@ unsigned long lastMillis;
 
 void setup() {
   Serial.begin(115200);
+  buffer.init(1000);
+  mirrorBuffer.init(128);
   recoverWiFlyClient();
 }
 
@@ -65,8 +75,11 @@ void loop() {
     byte input = SpiSerial.read();
     checkForOpenClose(input);
     Serial.print(input, BYTE);
+    buffer.put(input);	
     timeoutCounter = millis() + timeout;    
   }
+
+
 
   if(canSend == true){
       aliveCounter++;
@@ -75,7 +88,10 @@ void loop() {
       timeoutCounter = millis() + timeout;
   } else {
     if (canCmd || canOpen){
-
+        
+        if(canCmd == true){
+          printBuffer();
+        }
         openCmd();
         openConnection();
     
@@ -140,6 +156,7 @@ void checkForOpenClose(byte input){
     canCmd = true;
     canOpen = false;
     canSend = false;
+    
     //Serial.println("received *CLOSE*");
   }else if(input == 'C' && cmd == 0){
     cmd = 1;
@@ -220,6 +237,26 @@ void handleSendingData(){
   SpiSerial.println(temperatureSensor.readTemperature());
   SpiSerial.println();
  
+}
+
+void printBuffer(){
+    Serial.println("");
+    Serial.println("#### Print interesting part of buffer ####");
+    Serial.print("#### Buffer size: "); Serial.print(buffer.getCapacity() - buffer.getSize()); Serial.println(" ####");
+    Serial.print("#### Buffer size to print: 128 (last characters) ####");
+    
+    Serial.println(buffer.getSize());
+    mirrorBuffer.clear();
+    for( int i = 0; i < 128;i++  ){
+       mirrorBuffer.putInFront(buffer.getFromBack());
+    }
+    buffer.clear();
+    while(mirrorBuffer.getSize() > 6){
+      Serial.print(mirrorBuffer.get());
+    }
+    Serial.println("");
+    Serial.println("#### End buffer ####");
+  
 }
 
 

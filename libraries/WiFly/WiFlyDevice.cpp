@@ -26,7 +26,7 @@ boolean WiFlyDevice::findInResponse(const char *toMatch,
 
 
   DEBUG_LOG(1, "Entered findInResponse");
-  DEBUG_LOG(2, "Want to match:");
+  DEBUG_LOG(2, "Want to match2:");
   DEBUG_LOG(2, toMatch);
   DEBUG_LOG(3, "Found:");
 
