@@ -20,14 +20,22 @@ reboot
  */
 
 #include "WiFly.h" // We use this for the preinstantiated SpiSerial object.
-#include <TemperatureSensor.h>
-#include <SoundSensor.h>
+//#include <TemperatureSensor.h>
+//#include <SoundSensor.h>
 #include "properties.h"
 #include "ByteBuffer.h"
+#include "SparkSoftLCD.h"
 
-SoundSensor soundSensor(soundSensorPin);
-TemperatureSensor temperatureSensor(tempDataPin,tempClockPin);
-
+//SoundSensor soundSensor(soundSensorPin);
+//TemperatureSensor temperatureSensor(tempDataPin,tempClockPin);
+#define LCD_TX 2
+SparkSoftLCD lcd = SparkSoftLCD(LCD_TX);
+//Client client("findmyapp.net", 80);
+int byteCounter =0;
+//int screenCounter = 0;
+int lineCounter = 1; // possible values for lineCounter: 1 or 2
+int bufferLength = 135;
+int charCounter = 0;
 int closed = 0;
 int opened = 0;
 int cmd = 0;
@@ -49,24 +57,33 @@ ByteBuffer mirrorBuffer;
 
 
 //queueing
-enum {
+/*enum {
   TEMPERATURE,
   HUMIDITY,
   BEERTAP,  
   NOISE,
 } SensorType;
-
+*/
 //priority queue 
-int sendQueue[] = {TEMPERATURE, HUMIDITY, BEERTAP, NOISE}; //array of size 5
+//int sendQueue[] = {TEMPERATURE, HUMIDITY, BEERTAP, NOISE}; //array of size 5
 unsigned long timestampLastSent[] = {0,0,0,0}; //array of size 5
 unsigned long currentMillis;
 unsigned long lastMillis;
 
 void setup() {
+  
   Serial.begin(115200);
-  buffer.init(1000);
-  mirrorBuffer.init(128);
   recoverWiFlyClient();
+  buffer.init(1000);
+  mirrorBuffer.init(bufferLength);
+ 
+  pinMode(LCD_TX, OUTPUT);
+  lcd.begin(9600);
+  lcd.clear();
+  lcd.cursor(1);
+  show_setup();
+  
+  
 }
 
 
@@ -78,6 +95,7 @@ void loop() {
     buffer.put(input);	
     timeoutCounter = millis() + timeout;    
   }
+  //Serial.println("I loop");
 
 
 
@@ -184,10 +202,10 @@ void recoverWiFlyClient(){
   canCmd = true;
   canOpen = false;
   canSend = false;
-  timestampLastSent[TEMPERATURE]=0;
+  /*timestampLastSent[TEMPERATURE]=0;
   timestampLastSent[HUMIDITY]=0;
   timestampLastSent[BEERTAP]=0;
-  timestampLastSent[NOISE]=0;
+  timestampLastSent[NOISE]=0;*/
   SpiSerial.begin(115200);
   delay(5000); 
 }
@@ -223,40 +241,118 @@ void handleSending(){
 
 
 void handleSendingData(){
-  SpiSerial.print("POST "); 
+  SpiSerial.print("GET "); 
   SpiSerial.print("/findmyapp/locations/");
-  SpiSerial.print(location);
-  SpiSerial.print("/temperature");
+  SpiSerial.print("screen"); //location);
+  //SpiSerial.print("/temperature");
   SpiSerial.print(" HTTP/1.0");
   SpiSerial.println();
   SpiSerial.println("Content-Type: application/json");
   SpiSerial.println("Accept: application/json");
-  SpiSerial.println("Authorization: Basic c2Vuc29yOkYzMmdJay1MNw==");
-  SpiSerial.println("Content-Length: 5");
-  SpiSerial.println();
-  SpiSerial.println(temperatureSensor.readTemperature());
+  //SpiSerial.println("Authorization: Basic c2Vuc29yOkYzMmdJay1MNw==");
+  //SpiSerial.println("Content-Length: 5");
+  //SpiSerial.println();
+  //SpiSerial.println(temperatureSensor.readTemperature());
   SpiSerial.println();
  
 }
 
 void printBuffer(){
-    Serial.println("");
+    //Serial.println("");
     Serial.println("#### Print interesting part of buffer ####");
     Serial.print("#### Buffer size: "); Serial.print(buffer.getCapacity() - buffer.getSize()); Serial.println(" ####");
     Serial.print("#### Buffer size to print: 128 (last characters) ####");
     
     Serial.println(buffer.getSize());
     mirrorBuffer.clear();
-    for( int i = 0; i < 128;i++  ){
+    for( int i = 0; i < bufferLength;i++  ){
+      //Serial.println(buffer.getFromBack());
        mirrorBuffer.putInFront(buffer.getFromBack());
     }
     buffer.clear();
+    
+    // mirror buffer fullt
+    // the buffer size is 128 --> 8 lines, 4 screens.
+   Serial.println("");
+   byteCounter =0;
+   lineCounter =1;
+   Serial.print("START BUFFER");
+   charCounter =0;
     while(mirrorBuffer.getSize() > 6){
-      Serial.print(mirrorBuffer.get());
+      charCounter++;
+       //serialLCD.print(mirroBuffer.get())
+      printByteOnScreen(mirrorBuffer.get());
+      //Serial.print(mirrorBuffer.get());
     }
+    charCounter = 0;
     Serial.println("");
     Serial.println("#### End buffer ####");
   
 }
 
+/* int getNumberOfLinesRequired(String text) {
+     return (text.length()/16) + 1;
+ }*/
+ 
 
+
+void printByteOnScreen(byte myByte) {
+  byteCounter ++;
+  lcd.cursorTo(lineCounter,byteCounter);
+  if(myByte == '~') {
+      lcd.print(" ");
+  }else if (charCounter==0 || charCounter==bufferLength) {
+   // do nothing.
+  }else{
+    lcd.print(myByte);
+  }
+  /*Serial.println("");
+  Serial.print("byte,line, char: ");
+  Serial.print(byteCounter);
+  Serial.print(" ");
+  Serial.print(lineCounter);
+  Serial.print(" ");
+  Serial.println(myByte,BYTE);*/
+  
+  if(byteCounter == 16) {
+    // end of line
+    byteCounter = 0;
+    if(lineCounter == 1) {
+      lineCounter = 2;
+    }else if (lineCounter == 2) {
+      lineCounter = 1;
+      delay(2000);
+      lcd.clear();
+     }
+  }
+}
+
+
+void show_setup() {
+  
+ lcd.print("I am setting up!");
+ 
+   // send cursor to 2nd row, first column
+ lcd.cursorTo(2,1);
+ 
+ delay(500);
+ 
+ for (byte i = 0; i <= 15; i++ ) {
+     delay(300);
+       // scroll display to the right
+     lcd.scroll(true);
+ }
+ 
+ delay(1500);
+ lcd.print("One more moment");
+ 
+ 
+ for (byte i = 0; i <= 15; i++ ) {
+     delay(150);
+       // scroll back to the left, revealing our new text
+     lcd.scroll(false);
+ }
+ 
+
+ 
+}
